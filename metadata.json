@@ -1,0 +1,7 @@
+{
+  "name": "ARCDESIGN",
+  "description": "Official Timesheet, Shift Attendance, Site Analytics, and Daily Wage Payroll System for ARCDESIGN Construction.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

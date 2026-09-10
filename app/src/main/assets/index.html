@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ARCDESIGN Construction - Official Timesheet & Daily Wage Payroll</title>
+  <meta name="description" content="Official construction timesheet, shift attendance, site analytics, and daily wage payroll system for ArcDesign Construction." />
+  <meta name="theme-color" content="#18181b" />
+
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Bootstrap 5.3 & Bootstrap Icons -->
+  <link rel="stylesheet" href="bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+  <!-- Client-Side PDF & Canvas Libraries -->
+  <script src="html2canvas.min.js"></script>
+  <script src="jspdf.umd.min.js"></script>
+
+  <style>
+    :root {
+      --arc-red: #d11a2a;
+      --arc-red-hover: #b01321;
+      --arc-dark: #18181b;
+      --arc-gray: #27272a;
+      --arc-light: #f8f9fa;
+      --arc-border: #e4e4e7;
+      --arc-bale-blue: #0284c7;
+      --arc-gold-yellow: #ffc107;
+      --arc-gold-bg: #fff3cd;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f1f3f5;
+      color: #18181b;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ADAPTIVE PRINTER MARGINS */
+    @page {
+      size: auto !important;
+      margin: 5mm 4mm 5mm 4mm !important;
+    }
+
+    @media print {
+      html, body {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+      }
+
+      body.printing-payroll #exportArea,
+      body.printing-payroll .container-fluid,
+      body.printing-payroll #mainTimesheetContainer,
+      body.printing-payroll .header-card,
+      body.printing-payroll .modal,
+      body.printing-payroll .modal-backdrop,
+      body.printing-payroll #arcPdfProgressModal,
+      body.printing-payroll #arcDirectSharePrompt,
+      body.printing-payroll #loginOverlay,
+      body.printing-payroll .no-print {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        max-height: 0 !important;
+        overflow: hidden !important;
+        opacity: 0 !important;
+      }
+
+      body.printing-timesheet #exportArea,
+      body.printing-timesheet .container-fluid,
+      body.printing-timesheet #mainTimesheetContainer,
+      body.printing-timesheet .header-card,
+      body.printing-timesheet .modal,
+      body.printing-timesheet .modal-backdrop,
+      body.printing-timesheet .no-print {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        max-height: 0 !important;
+        overflow: hidden !important;
+        opacity: 0 !important;
+      }
+
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+        box-sizing: border-box !important;
+      }
+
+      #arcCleanPrintContainer {
+        display: block !important;
+        visibility: visible !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+      }
+
+      .pdf-site-page-block {
+        width: 100% !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin-bottom: 0 !important;
+        padding: 0 !important;
+      }
+
+      .pdf-site-page-block:not(:last-child) {
+        page-break-after: always !important;
+        break-after: page !important;
+      }
+
+      .pdf-site-page-block:last-child {
+        page-break-after: auto !important;
+        break-after: auto !important;
+      }
+    }
+
+    .btn-arc-red {
+      background-color: var(--arc-red);
+      color: #ffffff;
+      border: 1px solid var(--arc-red);
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+    .btn-arc-red:hover, .btn-arc-red:focus {
+      background-color: var(--arc-red-hover);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(209, 26, 42, 0.3);
+    }
+
+    .card-custom {
+      background-color: #ffffff;
+      border: 1px solid var(--arc-border);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    }
+
+    .header-card {
+      background: linear-gradient(135deg, #18181b 0%, #27272a 100%);
+      color: #ffffff;
+      border-radius: 14px;
+      border: 1px solid #3f3f46;
+      border-left: 6px solid var(--arc-red);
+    }
+
+    .brand-logo-img {
+      height: 52px;
+      width: auto;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+
+    .brand-title {
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      text-transform: uppercase;
+      font-size: 1.5rem;
+      line-height: 1.1;
+    }
+
+    .brand-sub {
+      color: var(--arc-red);
+      letter-spacing: 4px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .att-cell-full { background-color: #d1e7dd !important; color: #0f5132 !important; font-weight: 700; }
+    .att-cell-half { background-color: #fff3cd !important; color: #664d03 !important; font-weight: 700; }
+    .att-cell-hourly { background-color: #e2e3e5 !important; color: #383d41 !important; font-weight: 700; }
+    .att-cell-absent { background-color: #f8d7da !important; color: #842029 !important; font-weight: 700; }
+    .att-cell-sick { background-color: #cff4fc !important; color: #055160 !important; font-weight: 700; }
+    .att-cell-emergency { background-color: #e0cffc !important; color: #3d0a91 !important; font-weight: 700; }
+
+    .attendance-select {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 6px;
+      border-radius: 6px;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .ot-select {
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 2px 4px;
+      border-radius: 4px;
+      border: 1px solid #ced4da;
+    }
+    .ot-active {
+      background-color: var(--arc-red) !important;
+      color: #ffffff !important;
+      border-color: var(--arc-red) !important;
+    }
+
+    .day-header {
+      background-color: #18181b !important;
+      color: #ffffff !important;
+      text-align: center;
+      padding: 6px 2px;
+      vertical-align: middle;
+    }
+    .day-letter-lg {
+      font-size: 1.05rem;
+      font-weight: 900;
+      color: #ff334b;
+      display: block;
+      line-height: 1.1;
+    }
+    .date-badge {
+      font-size: 0.65rem;
+      color: #d4d4d8;
+      display: block;
+      font-weight: 600;
+    }
+
+    .worker-name {
+      letter-spacing: 0.5px;
+      word-spacing: 4px;
+      white-space: nowrap;
+      font-weight: 800;
+    }
+
+    .table-sticky-col {
+      position: sticky;
+      left: 0;
+      background-color: #ffffff;
+      z-index: 2;
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+    }
+    thead .table-sticky-col {
+      background-color: #18181b !important;
+      z-index: 3;
+    }
+
+    .bale-tag {
+      background-color: var(--arc-red);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .payroll-input {
+      width: 76px;
+      padding: 2px 4px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-align: right;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+    }
+    .payroll-input:focus {
+      border-color: var(--arc-red);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(209, 26, 42, 0.2);
+    }
+
+    .payroll-ot-row {
+      background-color: #f8f9fa !important;
+      font-weight: 800;
+    }
+    .payroll-subtotal-row {
+      background-color: #ffffff !important;
+      font-weight: 800;
+      border-top: 1.5px solid #222222;
+    }
+    .payroll-bale-row {
+      background-color: #f0f9ff !important;
+      color: var(--arc-bale-blue) !important;
+      font-weight: 800;
+    }
+    .payroll-bale-text {
+      color: var(--arc-bale-blue) !important;
+      font-weight: 800;
+    }
+    .payroll-total-row {
+      background-color: var(--arc-gold-yellow) !important;
+      color: #000000 !important;
+      font-weight: 900;
+      border-top: 2px solid #000000 !important;
+      border-bottom: 2px solid #000000 !important;
+    }
+
+    .signature-box-space {
+      height: 24px;
+      border-bottom: 1px solid #333333;
+      margin: 0 4px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .analytics-stat-card {
+      background: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e4e4e7;
+      padding: 10px;
+      text-align: center;
+    }
+    .analytics-stat-val {
+      font-size: 1.3rem;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+    .analytics-bar-track {
+      height: 12px;
+      background-color: #e4e4e7;
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      width: 100%;
+    }
+
+    .focus-day-item { 
+      border-left: 4px solid var(--arc-red) !important; 
+      background-color: #ffffff; 
+      border-radius: 8px; 
+    }
+    .print-att-cell { 
+      display: none; 
+    }
+  </style>
+</head>
+<body>
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay" style="position: fixed; inset: 0; background-color: rgba(13, 13, 13, 0.95); z-index: 100000; display: flex; align-items: center; justify-content: center;"> 
+  <div class="card p-4 border-danger border-2 shadow-lg text-white bg-dark" style="max-width: 400px; width: 90%;"> 
+    <div class="text-center mb-3"> 
+      <img src="arc_logo.jpg" alt="ARCDESIGN Logo" class="mb-2" style="width: 72px; height: 72px; object-fit: cover; border-radius: 12px; border: 2px solid #d11a2a;">
+      <div class="brand-title fs-3">ARCDESIGN</div> 
+      <div class="brand-sub">CONSTRUCTION</div> 
+      <p class="text-secondary small mt-2 mb-0">System Authentication Required</p> 
+    </div> 
+    <div id="loginErrorAlert" class="alert alert-danger p-2 small d-none text-center fw-bold">Invalid Username or Password!</div> 
+    <div class="mb-3"> 
+      <label class="form-label small fw-bold">Username</label> 
+      <input type="text" id="loginUsername" class="form-control" placeholder="Enter username" onkeydown="if(event.key==='Enter') attemptLogin()"> 
+    </div> 
+    <div class="mb-3"> 
+      <label class="form-label small fw-bold">Password</label> 
+      <input type="password" id="loginPassword" class="form-control" placeholder="Enter password" onkeydown="if(event.key==='Enter') attemptLogin()"> 
+    </div> 
+    <div class="form-check mb-3 text-start">
+      <input class="form-check-input border-danger" type="checkbox" id="rememberMeCheck" checked>
+      <label class="form-check-label small text-light user-select-none" for="rememberMeCheck">
+        <i class="bi bi-shield-lock-fill text-danger me-1"></i>Remember this device
+      </label>
+    </div>
+    <button type="button" class="btn btn-arc-red w-100 fw-bold py-2 mb-2" onclick="attemptLogin()">LOGIN</button> 
+  </div> 
+</div>
+
+<!-- FEATURES GUIDE MODAL -->
+<div class="modal fade" id="appFeaturesModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static"> 
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-dark text-white border-bottom border-danger"> 
+        <h5 class="modal-title fw-bold fs-6">
+          <i class="bi bi-phone-fill text-warning me-2"></i>Standalone App & Local Storage Guide
+        </h5> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-4 bg-light text-dark" style="font-size: 0.9rem; line-height: 1.6;"> 
+        <div class="alert alert-dark border-start border-danger border-4 mb-4">
+          <h6 class="fw-bold text-danger mb-1"><i class="bi bi-hdd-fill me-2"></i>100% Device Local Storage</h6>
+          <p class="mb-0 text-secondary small">
+            All attendance logs, overtime, hourly shifts, remarks, bales, and site data are saved securely on this device's storage. No external server or sync errors.
+          </p>
+        </div>
+
+        <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">Core Features</h6>
+
+        <div class="card p-3 mb-3 border-secondary bg-white shadow-sm">
+          <h6 class="fw-bold text-danger mb-2"><i class="bi bi-person-bounding-box me-2"></i>1. Single Worker Focus Mode</h6>
+          <p class="mb-1">Mark attendance comfortably 1-by-1 per worker across all 6 days with large touch buttons. Eliminates misclicks on mobile.</p>
+        </div>
+
+        <div class="card p-3 mb-3 border-secondary bg-white shadow-sm">
+          <h6 class="fw-bold text-danger mb-2"><i class="bi bi-cash-coin me-2"></i>2. Daily Wage Payroll Sheet</h6>
+          <p class="mb-1">Standard construction payroll format with OT Total, Subtotal, Bale, Net Total, and Legal 8.5"x14" Landscape PDF export.</p>
+        </div>
+
+        <div class="card p-3 mb-3 border-secondary bg-white shadow-sm">
+          <h6 class="fw-bold text-danger mb-2"><i class="bi bi-pie-chart-fill me-2"></i>3. Analytics & Remarks Engine</h6>
+          <p class="mb-1">View comprehensive site health metrics, worker attendance breakdown, and automated performance flags with reliable canvas export.</p>
+        </div>
+
+        <div class="card p-3 mb-3 border-secondary bg-white shadow-sm">
+          <h6 class="fw-bold text-danger mb-2"><i class="bi bi-file-earmark-pdf-fill me-2"></i>4. Legal PDF Export & Share</h6>
+          <p class="mb-1">High-contrast Legal paper size (8.5 x 14 in) PDF reports with top and bottom safety margins to prevent printer cutoffs.</p>
+        </div>
+      </div> 
+      <div class="modal-footer bg-white d-flex justify-content-between align-items-center flex-wrap gap-2"> 
+        <div class="form-check mb-0">
+          <input class="form-check-input border-secondary" type="checkbox" id="dontShowFeatureAgain">
+          <label class="form-check-label small fw-bold text-dark user-select-none" for="dontShowFeatureAgain">
+            Don't show this again on this device
+          </label>
+        </div>
+        <button type="button" class="btn btn-arc-red btn-sm fw-bold px-4" onclick="dismissFeatureModal()">
+          <i class="bi bi-check2-circle me-1"></i>Got It, Continue
+        </button> 
+      </div> 
+    </div> 
+  </div> 
+</div>
+
+<!-- MAIN PAGE CONTAINER -->
+<div class="container-fluid px-2 px-md-4 mt-2 mt-md-4" id="exportArea"> 
+  <div class="header-card p-3 mb-3 shadow-sm"> 
+    <div class="row align-items-center g-3"> 
+      <div class="col-12 col-lg-4 text-center text-lg-start"> 
+        <div class="d-flex align-items-center justify-content-center justify-content-lg-start gap-2">
+          <img src="arc_logo.jpg" alt="ARCDESIGN Logo" class="brand-logo-img">
+          <div>
+            <div class="brand-title">ARCDESIGN</div> 
+            <div class="brand-sub">CONSTRUCTION</div> 
+          </div>
+        </div>
+        <p class="text-light text-opacity-75 mb-0" style="font-size: 0.75rem; margin-top: 4px;">Timesheet & Attendance Tracker</p> 
+      </div> 
+      <div class="col-12 col-sm-6 col-lg-3 no-print"> 
+        <label for="startDatePicker" class="form-label text-white fw-bold mb-1 small"><i class="bi bi-calendar-event me-1 text-danger"></i>Select Week Start Date:</label> 
+        <input type="date" id="startDatePicker" class="form-control form-control-sm fw-bold border-danger" onchange="onStartDateChange(this.value)"> 
+      </div> 
+      <div class="col-12 col-sm-6 col-lg-2 no-print"> 
+        <label for="locationSelector" class="form-label text-white fw-bold mb-1 small"><i class="bi bi-geo-alt-fill me-1 text-danger"></i>Location:</label> 
+        <select id="locationSelector" class="form-select form-select-sm fw-semibold border-danger" onchange="switchLocation(this.value)"> 
+        </select> 
+      </div> 
+      <div class="col-12 col-lg-3 text-lg-end no-print mt-2 mt-lg-0"> 
+        <div class="d-flex flex-column gap-2"> 
+          <div style="background-color: #27272a; color: #fff; border: 1px solid #3f3f46; border-radius: 8px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; font-weight: 700;">
+            <div class="d-flex align-items-center gap-2">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background-color: #28a745; box-shadow: 0 0 7px rgba(40,167,69,0.9);"></span>
+              <span class="text-white">Device Storage Active</span>
+            </div>
+          </div>
+          
+          <div class="d-flex flex-row gap-1">
+            <button class="btn btn-warning btn-sm w-50 fw-bold" onclick="showExportTxtModal()"> 
+              <i class="bi bi-file-earmark-text-fill me-1"></i>TXT 
+            </button> 
+            <button class="btn btn-danger btn-sm w-50 fw-bold" onclick="exportToPDF(event)"> 
+              <i class="bi bi-file-earmark-pdf-fill me-1"></i>PDF 
+            </button> 
+            <button class="btn btn-primary btn-sm w-50 fw-bold" onclick="promptSharePermissionModal()"> 
+              <i class="bi bi-share-fill me-1"></i>Share 
+            </button> 
+          </div>
+
+          <!-- DAILY WAGE PAYROLL BUTTON -->
+          <button class="btn btn-success btn-sm w-100 py-2 fw-bold" onclick="openDailyWagePayrollModal()" style="background-color: #198754; border-color: #198754;">
+            <i class="bi bi-cash-stack me-1"></i>Daily Wage Payroll
+          </button>
+
+          <button type="button" class="btn btn-outline-warning btn-sm w-100 fw-bold" id="btnToggleDeviceNotifs" onclick="toggleDeviceNotificationPermission()" style="font-size: 0.75rem;">
+            <i class="bi bi-bell-fill me-1" id="notifIconStatus"></i>
+            <span id="notifStatusText">Device Notifications</span>
+          </button>
+        </div> 
+      </div> 
+    </div> 
+  </div>
+
+  <!-- SINGLE WORKER FOCUS MODE BANNER TRIGGER -->
+  <div class="card card-custom p-3 mb-3 border-start border-danger border-4 no-print bg-white">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h6 class="fw-bold text-dark mb-1">
+          <i class="bi bi-person-bounding-box text-danger me-2"></i>Single Worker Focus Mode
+        </h6>
+        <p class="text-muted small mb-0">
+          Step through workers 1-by-1 with large buttons. Eliminates misclicks on phone screens.
+        </p>
+      </div>
+      <button type="button" class="btn btn-arc-red btn-sm fw-bold px-3 py-2" onclick="startFocusMode()">
+        <i class="bi bi-play-circle-fill me-1"></i>Start Focus Mode
+      </button>
+    </div>
+  </div>
+
+  <div class="card card-custom p-3 mb-3 border-start border-danger border-4"> 
+    <div class="row align-items-center g-3"> 
+      <div class="col-xl-6"> 
+        <div class="d-flex align-items-center flex-wrap gap-2 gap-md-3" id="locationBaleContainer"></div> 
+        <div class="d-flex align-items-center gap-3 mt-2 flex-wrap"> 
+          <span id="dateRangeSummary" class="text-muted fw-semibold small mb-0"></span> 
+          <div id="recordedDatesContainer" class="d-inline-block"></div> 
+        </div> 
+      </div> 
+      <div class="col-xl-6 text-xl-end no-print" id="siteControlContainer"></div> 
+    </div> 
+    <div class="border-top pt-2 mt-2 d-flex align-items-center justify-content-between flex-wrap gap-2 no-print" id="roleFilterBar"> 
+      <div class="d-flex align-items-center flex-wrap gap-2"> 
+        <span class="fw-bold small text-dark"><i class="bi bi-funnel-fill text-danger me-1"></i>Filter Roles:</span> 
+        <div id="roleFilterButtons" class="d-flex flex-wrap gap-1"></div> 
+      </div> 
+      <div class="d-flex align-items-center gap-2"> 
+        <button class="btn btn-dark btn-sm fw-bold" onclick="showSearchWorkerModal()"> 
+          <i class="bi bi-search me-1 text-danger"></i>Search Worker 
+        </button> 
+        <button class="btn btn-arc-red btn-sm fw-bold" id="btnAddWorkerBtn" onclick="showAddWorkerModal()"> 
+          <i class="bi bi-person-plus-fill me-1"></i>Add Worker 
+        </button> 
+      </div> 
+    </div> 
+  </div> 
+
+  <!-- SITE STATS & ANALYTICS CONTAINER -->
+  <div id="siteStatsContainer" class="d-none"></div> 
+  <div id="mainTimesheetContainer"></div> 
+
+  <!-- FOOTER ACCOUNT STATUS -->
+  <div class="card p-3 mt-4 bg-dark text-white border-top border-danger border-3 no-print"> 
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2"> 
+      <div class="d-flex align-items-center gap-3"> 
+        <i class="bi bi-person-circle fs-4 text-danger"></i> 
+        <div> 
+          <span class="d-block fw-bold small text-light">Logged In Account:</span> 
+          <span id="activeAccountDisplay" class="badge bg-danger">Administrator (Admin)</span> 
+        </div> 
+      </div> 
+      <div class="d-flex align-items-center gap-2"> 
+        <button class="btn btn-outline-info btn-sm fw-bold" id="btnCreateAccount" onclick="showCreateAccountModal()"> 
+          <i class="bi bi-person-plus-fill me-1"></i>Create Account 
+        </button> 
+        <button class="btn btn-outline-light btn-sm fw-bold" onclick="logoutSession()"> 
+          <i class="bi bi-box-arrow-right me-1"></i>Log Out 
+        </button> 
+      </div> 
+    </div> 
+  </div> 
+</div>
+
+<datalist id="workerSearchDatalist"></datalist>
+
+<!-- DAILY WAGE PAYROLL MODAL -->
+<div class="modal fade" id="dailyWagePayrollModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
+    <div class="modal-content border-0">
+      <div class="modal-header bg-dark text-white border-bottom border-danger py-2 px-3">
+        <div class="d-flex align-items-center flex-wrap gap-2">
+          <span class="badge bg-danger fs-6"><i class="bi bi-cash-stack me-1"></i>DAILY WAGE PAYROLL</span>
+          <span id="payrollLocationBadge" class="badge bg-light text-dark fw-bold">SAN JOSEF</span>
+          <span id="payrollPeriodBadge" class="badge bg-secondary">Sep 7 - Sep 12</span>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-2 p-md-3 bg-light text-dark">
+        <!-- TOP TOOLBAR & CONTROLS -->
+        <div class="card card-custom p-3 mb-2 bg-white border-start border-danger border-4 shadow-sm">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="fw-bold text-dark mb-0 fs-6">
+                <i class="bi bi-calculator-fill text-danger me-1"></i>Standard Daily Wage & Payroll Sheet
+              </h5>
+              <small class="text-muted">
+                Edit Rate/Day or Rate/Hr. Amount Paid calculates automatically. Includes <strong>OT TOTAL</strong>, <strong>SUBTOTAL</strong>, <strong>BALE</strong>, and <strong>NET TOTAL</strong> summary.
+              </small>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <div class="form-check form-switch mb-0 me-2">
+                <input class="form-check-input border-danger" type="checkbox" id="payrollSignaturesCheck" checked>
+                <label class="form-check-label small fw-bold text-dark user-select-none" for="payrollSignaturesCheck">
+                  Include Signatures (Prepared / Checked / Approved)
+                </label>
+              </div>
+              <div class="btn-group">
+                <button type="button" class="btn btn-outline-dark btn-sm fw-bold px-3" onclick="exportPayroll('device')">
+                  <i class="bi bi-download me-1 text-danger"></i>Export to Device
+                </button>
+                <button type="button" class="btn btn-danger btn-sm fw-bold px-3" onclick="exportPayroll('share')">
+                  <i class="bi bi-share-fill me-1"></i>Share PDF (Landscape)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ROLE QUICK-SETUP BAR -->
+          <div class="border-top pt-2 mt-2 bg-light p-2 rounded border">
+            <div class="row g-2 align-items-center">
+              <div class="col-12 col-md-auto">
+                <span class="fw-bold small text-danger"><i class="bi bi-lightning-charge-fill me-1"></i>Quick Setup by Role:</span>
+              </div>
+              <div class="col-6 col-sm-4 col-md-auto">
+                <select id="quickRoleSelect" class="form-select form-select-sm fw-bold border-secondary" onchange="onQuickRoleChange(this.value)">
+                  <option value="LABOR">LABOR</option>
+                  <option value="SKILLED">SKILLED</option>
+                  <option value="MASONRY">MASONRY</option>
+                  <option value="FOREMAN">FOREMAN</option>
+                  <option value="WELDER">WELDER</option>
+                  <option value="STAY IN">STAY IN</option>
+                  <option value="BALE">BALE</option>
+                  <option value="EXTRA">EXTRA</option>
+                </select>
+              </div>
+              <div class="col-6 col-sm-4 col-md-auto">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text fw-bold">₱ / Day</span>
+                  <input type="number" id="quickRateDayInput" class="form-control fw-bold" placeholder="Rate/Day" value="450" min="0" step="10" oninput="autoCalculateQuickHourRate(this.value)">
+                </div>
+              </div>
+              <div class="col-6 col-sm-4 col-md-auto">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text fw-bold">₱ / Hr</span>
+                  <input type="number" id="quickRateHourInput" class="form-control fw-bold" placeholder="Rate/Hr" value="56" min="0" step="5">
+                </div>
+              </div>
+              <div class="col-6 col-sm-12 col-md-auto">
+                <button type="button" class="btn btn-dark btn-sm fw-bold w-100" onclick="applyQuickRoleRates()">
+                  <i class="bi bi-check2-all text-danger me-1"></i>Apply to All with this Role
+                </button>
+              </div>
+              <div class="col-12 col-md-auto text-muted" style="font-size: 0.72rem;">
+                *You can still manually modify individual workers with different rates in the table below.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAYROLL TABLE CONTAINER -->
+        <div class="card card-custom p-2 p-md-3 bg-white shadow-sm mb-3">
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm align-middle text-center mb-0" id="payrollMainTable" style="min-width: 1200px; font-size: 0.85rem;">
+              <thead class="table-dark">
+                <tr>
+                  <th style="width: 20%; text-align: left;" class="ps-2">Worker Name</th>
+                  <th style="width: 9%;">Position</th>
+                  <th style="width: 6%;">Days</th>
+                  <th style="width: 6%;">Hourly</th>
+                  <th style="width: 6%;">OT (hrs)</th>
+                  <th style="width: 9%;">Rate / Day (₱)</th>
+                  <th style="width: 9%;">Rate / Hr (₱)</th>
+                  <th style="width: 10%;">OT Amount (₱)</th>
+                  <th style="width: 11%; background-color: #d11a2a !important; color: #fff;">Amount Paid (₱)</th>
+                  <th style="width: 11%;">Signature</th>
+                  <th style="width: 10%;">Remarks</th>
+                </tr>
+              </thead>
+              <tbody id="payrollTableBody">
+              </tbody>
+              <tfoot id="payrollTableFooter">
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer bg-white py-2 px-3 d-flex justify-content-between">
+        <button type="button" class="btn btn-secondary btn-sm fw-bold px-4" data-bs-dismiss="modal">Close</button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-dark btn-sm fw-bold px-3" onclick="exportPayroll('device')">
+            <i class="bi bi-printer-fill me-1 text-danger"></i>Export to Device
+          </button>
+          <button type="button" class="btn btn-danger btn-sm fw-bold px-4" onclick="exportPayroll('share')">
+            <i class="bi bi-share-fill me-1"></i>Share PDF (Legal Landscape)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SINGLE WORKER FOCUS MODE MODAL -->
+<div class="modal fade" id="focusModeModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content border-danger border-3 shadow-lg">
+      <div class="modal-header bg-dark text-white border-bottom border-danger py-2">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-danger fs-6"><i class="bi bi-person-bounding-box me-1"></i>FOCUS MODE</span>
+          <span id="focusProgressBadge" class="badge bg-secondary">Worker 1 of 10</span>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" title="Exit Focus Mode"></button>
+      </div>
+      <div class="modal-body p-3 bg-light text-dark" id="focusModeBody">
+      </div>
+      <div class="modal-footer bg-white py-2 d-flex justify-content-between align-items-center">
+        <button type="button" class="btn btn-outline-dark btn-sm fw-bold" id="focusPrevBtn" onclick="focusNavWorker(-1)">
+          <i class="bi bi-chevron-left me-1"></i>Previous Worker
+        </button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-danger btn-sm fw-bold" onclick="toggleFocusRateEditor()" title="Modify wage rates for this worker">
+            <i class="bi bi-cash-coin me-1"></i>Modify Rates
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Done / Close</button>
+          <button type="button" class="btn btn-arc-red btn-sm fw-bold" id="focusNextBtn" onclick="focusNavWorker(1)">
+            Next Worker<i class="bi bi-chevron-right ms-1"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOM HOURLY SHIFT ENTRY MODAL -->
+<div class="modal fade" id="customHoursModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
+    <div class="modal-content border-secondary border-2 shadow">
+      <div class="modal-header bg-dark text-white py-2 px-3">
+        <h6 class="modal-title fw-bold mb-0"><i class="bi bi-clock-history text-danger me-2"></i>Record Custom Hours</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3 bg-light text-dark">
+        <p class="small text-muted mb-2">Select or enter the exact number of hours worked for this day:</p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-outline-dark btn-sm fw-bold flex-grow-1" onclick="setCustomHourInputValue(1)">1 hr</button>
+          <button type="button" class="btn btn-outline-dark btn-sm fw-bold flex-grow-1" onclick="setCustomHourInputValue(2)">2 hrs</button>
+          <button type="button" class="btn btn-outline-dark btn-sm fw-bold flex-grow-1" onclick="setCustomHourInputValue(3)">3 hrs</button>
+          <button type="button" class="btn btn-outline-dark btn-sm fw-bold flex-grow-1" onclick="setCustomHourInputValue(4)">4 hrs</button>
+          <button type="button" class="btn btn-outline-dark btn-sm fw-bold flex-grow-1" onclick="setCustomHourInputValue(5)">5 hrs</button>
+          <button type="button" class="btn btn-outline-dark btn-sm fw-bold flex-grow-1" onclick="setCustomHourInputValue(6)">6 hrs</button>
+          <button type="button" class="btn btn-outline-dark btn-sm fw-bold flex-grow-1" onclick="setCustomHourInputValue(7)">7 hrs</button>
+        </div>
+        <div class="input-group mb-2">
+          <input type="number" id="customHourNumberInput" class="form-control fw-bold text-center" min="1" max="12" step="0.5" placeholder="Enter hours (e.g., 3.5)">
+          <span class="input-group-text fw-bold">hours</span>
+        </div>
+      </div>
+      <div class="modal-footer bg-white py-2 px-3">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-arc-red btn-sm fw-bold px-3" onclick="confirmCustomHoursEntry()">Apply Hours</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WORKER SEARCH MODAL -->
+<div class="modal fade" id="searchWorkerModal" tabindex="-1" aria-hidden="true"> 
+  <div class="modal-dialog modal-dialog-centered modal-lg"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-dark text-white py-2 px-3"> 
+        <h6 class="modal-title fw-bold mb-0"><i class="bi bi-search text-danger me-2"></i>Worker Search & Quick Jump</h6> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-3 bg-light text-dark"> 
+        <div class="input-group mb-3"> 
+          <span class="input-group-text bg-white"><i class="bi bi-search text-danger"></i></span> 
+          <input type="text" id="workerSearchField" class="form-control fw-bold" placeholder="Type worker name or role..." oninput="handleWorkerSearchLive(this.value)"> 
+        </div> 
+        <div id="searchResultsContainer" class="d-flex flex-column gap-2" style="max-height: 380px; overflow-y: auto;"></div> 
+      </div> 
+    </div> 
+  </div> 
+</div>
+
+<!-- ADD WORKER MODAL -->
+<div class="modal fade" id="addWorkerModal" tabindex="-1" aria-hidden="true"> 
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-dark text-white py-2 px-3"> 
+        <h6 class="modal-title fw-bold mb-0"><i class="bi bi-person-plus-fill text-danger me-2"></i>Add Worker to <span id="modalLocName"></span></h6> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-3 bg-light text-dark"> 
+        <div class="mb-3"> 
+          <label class="form-label small fw-bold">Worker Full Name:</label> 
+          <input type="text" id="newWorkerName" class="form-control fw-bold" placeholder="Enter Full Name" onkeydown="if(event.key==='Enter') confirmAddWorker()"> 
+        </div> 
+        <div class="mb-2"> 
+          <label class="form-label small fw-bold">Primary Role:</label> 
+          <select id="newWorkerRole" class="form-select fw-semibold"> 
+            <option value="SKILLED">SKILLED</option> 
+            <option value="MASONRY">MASONRY</option> 
+            <option value="LABOR">LABOR</option> 
+            <option value="TIMEKEEPER">TIMEKEEPER</option> 
+            <option value="FOREMAN">FOREMAN</option> 
+            <option value="LEADMAN">LEADMAN</option> 
+            <option value="WELDER">WELDER</option> 
+            <option value="ELECTRICIAN">ELECTRICIAN</option> 
+            <option value="PAINTER">PAINTER</option> 
+            <option value="CARPENTER">CARPENTER</option> 
+          </select> 
+        </div> 
+      </div> 
+      <div class="modal-footer bg-white py-2 px-3"> 
+        <button type="button" class="btn btn-secondary btn-sm fw-bold" data-bs-dismiss="modal">Cancel</button> 
+        <button type="button" class="btn btn-arc-red btn-sm fw-bold px-3" onclick="confirmAddWorker()">Add Worker</button> 
+      </div> 
+    </div> 
+  </div> 
+</div>
+
+<!-- RENAME WORKER MODAL -->
+<div class="modal fade" id="renameWorkerModal" tabindex="-1" aria-hidden="true"> 
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-dark text-white py-2 px-3"> 
+        <h6 class="modal-title fw-bold mb-0"><i class="bi bi-pencil-square text-danger me-2"></i>Edit Worker Details</h6> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-3 bg-light text-dark"> 
+        <div class="mb-3"> 
+          <label class="form-label small fw-bold">Worker Name:</label> 
+          <input type="text" id="renameWorkerNameInput" class="form-control fw-bold" placeholder="Worker Full Name"> 
+        </div> 
+        <div class="mb-2"> 
+          <label class="form-label small fw-bold">Role:</label> 
+          <select id="renameWorkerRoleInput" class="form-select fw-semibold"> 
+            <option value="SKILLED">SKILLED</option> 
+            <option value="MASONRY">MASONRY</option> 
+            <option value="LABOR">LABOR</option> 
+            <option value="TIMEKEEPER">TIMEKEEPER</option> 
+            <option value="FOREMAN">FOREMAN</option> 
+            <option value="LEADMAN">LEADMAN</option> 
+            <option value="WELDER">WELDER</option> 
+            <option value="ELECTRICIAN">ELECTRICIAN</option> 
+            <option value="PAINTER">PAINTER</option> 
+            <option value="CARPENTER">CARPENTER</option> 
+          </select> 
+        </div> 
+      </div> 
+      <div class="modal-footer bg-white py-2 px-3"> 
+        <button type="button" class="btn btn-secondary btn-sm fw-bold" data-bs-dismiss="modal">Cancel</button> 
+        <button type="button" class="btn btn-arc-red btn-sm fw-bold px-3" onclick="confirmRenameWorker()">Save Changes</button> 
+      </div> 
+    </div> 
+  </div> 
+</div>
+
+<!-- WORKER INDIVIDUAL ANALYTICS & REMARKS MODAL -->
+<div class="modal fade" id="workerProfileModal" tabindex="-1" aria-hidden="true"> 
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-dark text-white py-2 px-3"> 
+        <h6 class="modal-title fw-bold mb-0">
+          <i class="bi bi-graph-up-arrow text-danger me-2"></i>Worker Individual Analytics & Remarks
+        </h6> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-3 bg-light text-dark"> 
+        <!-- WORKER HEADER WITH RATES & QUICK ACTIONS -->
+        <div class="card p-3 mb-3 bg-white border-start border-danger border-4 shadow-sm"> 
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2"> 
+            <div> 
+              <div class="d-flex align-items-center gap-2">
+                <h4 id="profileWorkerName" class="fw-bold text-danger mb-0 text-uppercase" style="word-spacing: 4px;"></h4> 
+                <span id="profileWorkerRole" class="badge bg-dark"></span> 
+                <span id="profileWorkerSite" class="badge bg-secondary"></span> 
+              </div>
+              <small class="text-muted d-block mt-1" id="profileWorkerRates"></small>
+            </div> 
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-outline-danger btn-sm fw-bold" onclick="launchFocusForActiveWorker()">
+                <i class="bi bi-bullseye me-1"></i>Focus Shift
+              </button>
+            </div> 
+          </div> 
+        </div> 
+
+        <!-- STAT CARDS (Days, OT, Rate %, Bale, Net Wage) -->
+        <div class="row g-2 mb-3" id="profileWorkerStatsGrid">
+        </div>
+
+        <!-- 6-DAY SHIFT & ATTENDANCE BREAKDOWN -->
+        <div class="card p-3 mb-3 bg-white border shadow-sm">
+          <h6 class="fw-bold small text-dark mb-2">
+            <i class="bi bi-calendar3 text-danger me-1"></i>Weekly Shift Breakdown (Monday to Saturday):
+          </h6>
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm align-middle text-center mb-0" style="font-size: 0.8rem;">
+              <thead class="table-light">
+                <tr id="profileShiftHeaderRow"></tr>
+              </thead>
+              <tbody>
+                <tr id="profileShiftStatusRow"></tr>
+                <tr id="profileShiftOtRow"></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PRIMARY TIMESHEET REMARK / CUSTOM NOTE -->
+        <div class="card p-3 mb-3 bg-white border shadow-sm">
+          <label class="fw-bold small text-dark mb-1">
+            <i class="bi bi-card-text text-danger me-1"></i>Official Timesheet Remark (Appears on Table & PDF):
+          </label>
+          <div class="input-group">
+            <input type="text" id="profileWorkerRemarkInput" class="form-control fw-semibold" placeholder="e.g. half day rain, transferred from Site B, cement helper..." onchange="saveWorkerRemarkFromProfile(this.value)">
+            <button class="btn btn-dark fw-bold" onclick="saveWorkerRemarkFromProfile(document.getElementById('profileWorkerRemarkInput')?.value); alert('Remark saved successfully!');">
+              <i class="bi bi-save me-1"></i>Save
+            </button>
+          </div>
+        </div>
+
+        <!-- SITE SUPERVISOR OBSERVATIONS & NOTES HISTORY -->
+        <div class="card p-3 mb-3 bg-white border shadow-sm"> 
+          <label class="fw-bold small text-dark mb-2">
+            <i class="bi bi-journal-plus text-danger me-1"></i>Add Detailed Observation / Incident Note:
+          </label> 
+          <div class="input-group"> 
+            <input type="text" id="newWorkerNoteInput" class="form-control" placeholder="Type observation, deduction note, or site remark..." onkeydown="if(event.key==='Enter') addWorkerNote()"> 
+            <button class="btn btn-arc-red fw-bold" onclick="addWorkerNote()"><i class="bi bi-plus-lg me-1"></i>Add Note</button> 
+          </div> 
+        </div> 
+
+        <div class="card p-3 bg-white border shadow-sm"> 
+          <label class="fw-bold small text-dark mb-2">
+            <i class="bi bi-clock-history text-danger me-1"></i>Supervisor Observation History:
+          </label> 
+          <div id="workerNotesHistoryContainer" class="d-flex flex-column gap-2" style="max-height: 200px; overflow-y: auto;"></div> 
+        </div> 
+      </div> 
+      <div class="modal-footer bg-white py-2 px-3 justify-content-between">
+        <button type="button" class="btn btn-secondary btn-sm fw-bold px-4" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-arc-red btn-sm fw-bold px-3" onclick="launchFocusForActiveWorker()">
+          <i class="bi bi-bullseye me-1"></i>Log Attendance in Focus Mode
+        </button>
+      </div>
+    </div> 
+  </div> 
+</div>
+
+<!-- SITE NOTES & REMARKS MODAL -->
+<div class="modal fade" id="siteNotesModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-danger border-2 shadow-lg">
+      <div class="modal-header bg-dark text-white py-2 px-3">
+        <h6 class="modal-title fw-bold mb-0">
+          <i class="bi bi-journal-text text-danger me-2"></i>Site Supervisor Notes & Daily Remarks (<span id="siteNotesModalTitle"></span>)
+        </h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3 bg-light text-dark">
+        <p class="text-muted small mb-2">Record official weather conditions, material arrivals, safety logs, and general site observations for this period.</p>
+        <div class="d-flex flex-wrap gap-1 mb-2">
+          <span class="badge bg-white text-dark border cursor-pointer" onclick="appendModalSiteNotePreset('☀️ Good Weather')">+ Good Weather</span>
+          <span class="badge bg-white text-dark border cursor-pointer" onclick="appendModalSiteNotePreset('🌧️ Heavy Rain / Standby')">+ Heavy Rain</span>
+          <span class="badge bg-white text-dark border cursor-pointer" onclick="appendModalSiteNotePreset('🚚 Materials Delivered')">+ Materials Delivered</span>
+          <span class="badge bg-white text-dark border cursor-pointer" onclick="appendModalSiteNotePreset('⚠️ Safety Inspection Done')">+ Safety Inspection</span>
+          <span class="badge bg-white text-dark border cursor-pointer" onclick="appendModalSiteNotePreset('👷 Pouring Done')">+ Pouring Done</span>
+        </div>
+        <textarea id="modalSiteNotesText" class="form-control mb-3" rows="4" placeholder="Enter site notes, weather, supplier deliveries, progress..."></textarea>
+        <div class="d-flex justify-content-between align-items-center">
+          <small class="text-muted" id="modalSiteNotesStatus"></small>
+          <button type="button" class="btn btn-arc-red fw-bold px-4" onclick="saveModalSiteNotes()">
+            <i class="bi bi-save me-1"></i>Save Site Notes
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE STAFF ACCOUNT MODAL --> 
+<div class="modal fade" id="createAccountModal" tabindex="-1" aria-hidden="true"> 
+  <div class="modal-dialog modal-dialog-centered"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-dark text-white border-bottom border-danger py-2 px-3"> 
+        <h6 class="modal-title fw-bold mb-0"><i class="bi bi-person-plus-fill text-danger me-2"></i>Create Staff Member Account</h6> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-3 bg-light text-dark"> 
+        <div class="alert alert-info py-2 small mb-3"> 
+          Staff accounts can record attendance, overtime, custom hours, remarks, bales, and export records, but <strong>cannot create sites, delete sites, add workers, edit worker roles/names, or delete workers/dates</strong>. 
+        </div> 
+        <div id="createAccountAlert" class="alert alert-danger py-2 small d-none"></div> 
+        <div class="mb-3"> 
+          <label class="form-label fw-bold small">Staff Username</label> 
+          <input type="text" id="newStaffUsername" class="form-control" placeholder="e.g. staff_member"> 
+        </div> 
+        <div class="mb-3"> 
+          <label class="form-label fw-bold small">Staff Password</label> 
+          <input type="password" id="newStaffPassword" class="form-control" placeholder="Enter staff password"> 
+        </div> 
+        <div class="border-top pt-3 mt-3"> 
+          <label class="fw-bold small text-dark mb-2 d-block"><i class="bi bi-people-fill text-secondary me-1"></i>Existing Staff Accounts</label> 
+          <div id="existingStaffList" class="d-flex flex-column gap-2" style="max-height: 160px; overflow-y: auto;"></div> 
+        </div> 
+      </div> 
+      <div class="modal-footer bg-white py-2 px-3"> 
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button> 
+        <button type="button" class="btn btn-arc-red btn-sm fw-bold px-3" onclick="confirmCreateStaffAccount()">Create Account</button> 
+      </div> 
+    </div> 
+  </div> 
+</div>
+
+<!-- CREATE PROJECT MODAL --> 
+<div class="modal fade" id="createProjectModal" tabindex="-1" aria-hidden="true"> 
+  <div class="modal-dialog modal-dialog-centered"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-dark text-white border-bottom border-danger py-2 px-3"> 
+        <h6 class="modal-title fw-bold mb-0"><i class="bi bi-plus-circle-fill text-danger me-2"></i>Create New Project Location</h6> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-3 bg-light text-dark"> 
+        <div class="mb-3"> 
+          <label class="form-label fw-bold small">Project / Location Name</label> 
+          <input type="text" id="newProjectName" class="form-control text-uppercase fw-bold" placeholder="e.g. CABANATUAN SITE" onkeydown="if(event.key==='Enter') confirmCreateProject()"> 
+        </div> 
+      </div> 
+      <div class="modal-footer bg-white py-2 px-3"> 
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button> 
+        <button type="button" class="btn btn-arc-red btn-sm fw-bold px-3" onclick="confirmCreateProject()">Create Project</button> 
+      </div> 
+    </div> 
+  </div> 
+</div>
+
+<!-- CLEAR RECORDS MODAL --> 
+<div class="modal fade" id="clearRecordsModal" tabindex="-1" aria-hidden="true"> 
+  <div class="modal-dialog modal-dialog-centered border-danger"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-danger text-white py-2 px-3"> 
+        <h6 class="modal-title fw-bold mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>SECURITY CHECK: Clear Records</h6> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-3 bg-light text-dark"> 
+        <div class="alert alert-danger fw-bold text-center mb-3"> 
+          CLEAR RECORDS FOR THIS TIME FRAME: 
+          <div id="clearTimeframeRange" class="fs-6 text-dark mt-1"></div> 
+        </div> 
+        <p class="text-secondary small mb-3">This action will reset all attendance, OT, hourly, and bale records for this site. <strong>This cannot be undone.</strong></p> 
+        <div class="card p-3 bg-white border"> 
+          <label class="form-label fw-bold text-dark mb-1 small"><i class="bi bi-shield-check text-success me-1"></i>Security Verification Challenge</label> 
+          <div class="d-flex align-items-center gap-2 mb-2"> 
+            <span id="mathQuestionText" class="fw-bold fs-5 text-danger"></span> 
+            <span class="fs-5 fw-bold">=</span> 
+            <input type="number" id="mathAnswerInput" class="form-control form-control-sm border-danger text-center fw-bold" style="width: 90px;" placeholder="Answer"> 
+          </div> 
+          <div id="mathErrorAlert" class="text-danger fw-bold small d-none"><i class="bi bi-x-circle me-1"></i>Incorrect answer. Please try again.</div> 
+        </div> 
+      </div> 
+      <div class="modal-footer bg-white py-2 px-3"> 
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button> 
+        <button type="button" class="btn btn-danger btn-sm fw-bold px-3" onclick="executeClearRecords()">Confirm Clear</button> 
+      </div> 
+    </div> 
+  </div> 
+</div> 
+
+<!-- DELETE RECORDED DATE MODAL --> 
+<div class="modal fade" id="deleteRecordedDateModal" tabindex="-1" aria-hidden="true"> 
+  <div class="modal-dialog modal-dialog-centered border-danger"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-danger text-white py-2 px-3"> 
+        <h6 class="modal-title fw-bold mb-0"><i class="bi bi-calendar-x-fill me-2"></i>SECURITY CHECK: Delete Recorded Period</h6> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-3 bg-light text-dark"> 
+        <div class="alert alert-danger fw-bold text-center mb-3"> 
+          DELETE ENTIRE RECORDED WEEK/DATE: 
+          <div id="deleteDateRangeDisplay" class="fs-6 text-dark mt-1"></div> 
+        </div> 
+        <div class="card p-3 bg-white border"> 
+          <label class="form-label fw-bold text-dark mb-1 small"><i class="bi bi-shield-check text-success me-1"></i>Security Verification Challenge</label> 
+          <div class="d-flex align-items-center gap-2 mb-2"> 
+            <span id="deleteDateMathQuestionText" class="fw-bold fs-5 text-danger"></span> 
+            <span class="fs-5 fw-bold">=</span> 
+            <input type="number" id="deleteDateMathAnswerInput" class="form-control form-control-sm border-danger text-center fw-bold" style="width: 90px;" placeholder="Answer"> 
+          </div> 
+          <div id="deleteDateMathErrorAlert" class="text-danger fw-bold small d-none"><i class="bi bi-x-circle me-1"></i>Incorrect answer. Please try again.</div> 
+        </div> 
+      </div> 
+      <div class="modal-footer bg-white py-2 px-3"> 
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button> 
+        <button type="button" class="btn btn-danger btn-sm fw-bold px-3" onclick="executeDeleteRecordedDate()">Confirm Delete</button> 
+      </div> 
+    </div> 
+  </div> 
+</div> 
+
+<!-- DELETE PROJECT MODAL --> 
+<div class="modal fade" id="deleteProjectModal" tabindex="-1" aria-hidden="true"> 
+  <div class="modal-dialog modal-dialog-centered border-danger"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-danger text-white py-2 px-3"> 
+        <h6 class="modal-title fw-bold mb-0"><i class="bi bi-exclamation-octagon-fill me-2"></i>SECURITY CHECK: Delete Site</h6> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-3 bg-light text-dark"> 
+        <div class="alert alert-danger fw-bold text-center mb-3"> 
+          PERMANENTLY DELETE ENTIRE SITE: 
+          <div id="deleteProjectNameDisplay" class="fs-5 text-dark mt-1"></div> 
+        </div> 
+        <div class="card p-3 bg-white border"> 
+          <label class="form-label fw-bold text-dark mb-1 small"><i class="bi bi-shield-check text-success me-1"></i>Security Verification Challenge</label> 
+          <div class="d-flex align-items-center gap-2 mb-2"> 
+            <span id="deleteMathQuestionText" class="fw-bold fs-5 text-danger"></span> 
+            <span class="fs-5 fw-bold">=</span> 
+            <input type="number" id="deleteMathAnswerInput" class="form-control form-control-sm border-danger text-center fw-bold" style="width: 90px;" placeholder="Answer"> 
+          </div> 
+          <div id="deleteMathErrorAlert" class="text-danger fw-bold small d-none"><i class="bi bi-x-circle me-1"></i>Incorrect answer. Please try again.</div> 
+        </div> 
+      </div> 
+      <div class="modal-footer bg-white py-2 px-3"> 
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button> 
+        <button type="button" class="btn btn-danger btn-sm fw-bold px-3" onclick="executeDeleteProject()">Confirm Delete Site</button> 
+      </div> 
+    </div> 
+  </div> 
+</div>
+
+<!-- EXPORT TXT MODAL --> 
+<div class="modal fade" id="exportTxtModal" tabindex="-1" aria-hidden="true"> 
+  <div class="modal-dialog modal-dialog-centered border-danger"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-dark text-white border-bottom border-danger py-2 px-3"> 
+        <h6 class="modal-title fw-bold mb-0"><i class="bi bi-file-earmark-text-fill text-danger me-2"></i>Export Records Transcript (.TXT)</h6> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-3 bg-light text-dark"> 
+        <div class="mb-3"> 
+          <label class="form-label fw-bold small">Select Period Start Date:</label> 
+          <input type="date" id="exportStartDate" class="form-control form-control-sm"> 
+        </div> 
+        <div class="mb-3"> 
+          <label class="form-label fw-bold small">Select Period End Date:</label> 
+          <input type="date" id="exportEndDate" class="form-control form-control-sm"> 
+        </div> 
+      </div> 
+      <div class="modal-footer bg-white py-2 px-3"> 
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button> 
+        <button type="button" class="btn btn-danger btn-sm fw-bold px-3" onclick="executeTxtExport()">Download Transcript</button> 
+      </div> 
+    </div> 
+  </div> 
+</div>
+
+<!-- EXPORT PDF OPTIONS MODAL -->
+<div class="modal fade" id="arcPdfConfigModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-dark text-white py-2 px-3"> 
+        <h6 class="modal-title fw-bold mb-0"> 
+          <i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i>Export Timesheet PDF Options
+        </h6> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-3 bg-light text-dark"> 
+        <label class="fw-bold small text-dark mb-2 d-block"> 
+          <i class="bi bi-layers-fill text-danger me-1"></i>Select Report to Export: 
+        </label> 
+        <div class="d-flex flex-column gap-2 mb-3"> 
+          <div class="p-2 border rounded bg-white form-check"> 
+            <input class="form-check-input ms-1 me-2 border-danger" type="radio" name="pdfReportChoice" id="pdfChoiceTimesheet" value="timesheet" checked> 
+            <label class="form-check-label fw-bold small text-dark cursor-pointer user-select-none" for="pdfChoiceTimesheet"> 
+              <i class="bi bi-table text-danger me-1"></i>Full Timesheet (Attendance Roster) 
+            </label> 
+            <div class="text-muted ms-4" style="font-size: 0.72rem;">Table of worker shifts, days, hourly, OT, and bale records only.</div> 
+          </div> 
+
+          <div class="p-2 border rounded bg-white form-check"> 
+            <input class="form-check-input ms-1 me-2 border-danger" type="radio" name="pdfReportChoice" id="pdfChoiceAnalytics" value="analytics"> 
+            <label class="form-check-label fw-bold small text-dark cursor-pointer user-select-none" for="pdfChoiceAnalytics"> 
+              <i class="bi bi-pie-chart-fill text-danger me-1"></i>Analytics & Remarks Only 
+            </label> 
+            <div class="text-muted ms-4" style="font-size: 0.72rem;">Performance charts, site remarks history & worker notes only.</div> 
+          </div> 
+        </div> 
+
+        <div class="card p-2 bg-white border mb-3"> 
+          <div class="form-check form-switch mb-0"> 
+            <input class="form-check-input border-danger" type="checkbox" id="pdfIncludeSignaturesCheck"> 
+            <label class="form-check-label fw-bold small text-dark user-select-none" for="pdfIncludeSignaturesCheck"> 
+              Include Prepared by & Checked by Signatures 
+            </label> 
+          </div> 
+        </div> 
+
+        <label class="fw-bold small text-dark mb-2 d-block"> 
+          <i class="bi bi-send-fill text-danger me-1"></i>Choose Save or Share Option: 
+        </label> 
+        <div class="d-flex flex-column gap-2"> 
+          <button type="button" class="btn btn-outline-dark fw-bold py-2 w-100 shadow-sm" onclick="handlePdfExportAction('download')"> 
+            <i class="bi bi-printer-fill me-2 text-danger"></i>Save to Device Storage (Print / Save) 
+          </button> 
+          <button type="button" class="btn btn-arc-red fw-bold py-2 w-100 shadow-sm" onclick="handlePdfExportAction('messenger')"> 
+            <i class="bi bi-messenger me-2"></i>Send via Messenger / Share Sheet 
+          </button> 
+        </div> 
+      </div> 
+      <div class="modal-footer bg-white py-2 justify-content-center"> 
+        <button type="button" class="btn btn-secondary btn-sm px-4 fw-bold" data-bs-dismiss="modal">Close</button> 
+      </div> 
+    </div> 
+  </div> 
+</div>
+
+<!-- SHARE PERMISSION MODAL -->
+<div class="modal fade" id="arcSharePermissionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;"> 
+    <div class="modal-content border-danger border-2 shadow-lg"> 
+      <div class="modal-header bg-dark text-white py-2 px-3"> 
+        <h6 class="modal-title fw-bold mb-0"> 
+          <i class="bi bi-share-fill text-danger me-2"></i>Share App / Profile Card
+        </h6> 
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button> 
+      </div> 
+      <div class="modal-body p-3 bg-light text-dark"> 
+        <label class="fw-bold small text-dark mb-2 d-block"> 
+          <i class="bi bi-ui-radios-grid text-danger me-1"></i>Choose What to Share: 
+        </label> 
+        <div class="d-flex flex-column gap-2 mb-3"> 
+          <div class="p-2 border rounded bg-white form-check border-danger"> 
+            <input class="form-check-input ms-1 me-2 border-danger" type="radio" name="arcShareFormatChoice" id="shareFormatCardImg" value="card_image" checked> 
+            <label class="form-check-label fw-bold small text-dark cursor-pointer user-select-none" for="shareFormatCardImg"> 
+              <i class="bi bi-image-fill text-danger me-1"></i>ArcDesign Profile Card (.png Image)
+            </label> 
+            <div class="text-muted ms-4" style="font-size: 0.72rem;"> 
+              High-definition image with contact details, services & estimates. Ready for Messenger & Social Media.
+            </div> 
+          </div> 
+
+          <div class="p-2 border rounded bg-white form-check"> 
+            <input class="form-check-input ms-1 me-2 border-secondary" type="radio" name="arcShareFormatChoice" id="shareFormatHtml" value="html"> 
+            <label class="form-check-label fw-bold small text-dark cursor-pointer user-select-none" for="shareFormatHtml"> 
+              <i class="bi bi-filetype-html text-dark me-1"></i>Full Timesheet App (.html File)
+            </label> 
+            <div class="text-muted ms-4" style="font-size: 0.72rem;"> 
+              Complete application file ready to run on any mobile phone or browser. 
+            </div> 
+          </div> 
+        </div> 
+
+        <!-- QUICK QR CODE BUTTON & BAR -->
+        <div class="p-2 mb-3 bg-white border border-danger rounded text-center">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="small fw-bold text-dark"><i class="bi bi-qr-code text-danger me-1"></i>Facebook Share QR Code</span>
+            <span class="badge bg-danger">Instant Share</span>
+          </div>
+          <button type="button" class="btn btn-outline-danger btn-sm fw-bold w-100 py-1" onclick="openShareQrModal()">
+            <i class="bi bi-qr-code-scan me-1"></i>Show / Scan Share Link QR Code
+          </button>
+        </div>
+
+        <div class="d-flex flex-column gap-2"> 
+          <button class="btn btn-arc-red fw-bold py-2 w-100 shadow-sm" onclick="processShareAction('messenger')"> 
+            <i class="bi bi-messenger me-1"></i> Send via Messenger or Other Apps
+          </button> 
+          <button class="btn btn-dark fw-bold py-2 w-100 shadow-sm" onclick="processShareAction('bluetooth')"> 
+            <i class="bi bi-bluetooth me-1"></i> Send via Bluetooth / Quick Share 
+          </button> 
+          <div class="d-flex gap-2"> 
+            <button class="btn btn-outline-dark btn-sm fw-bold w-50 py-1" onclick="processShareAction('download')"> 
+              <i class="bi bi-download me-1"></i> Download File 
+            </button> 
+            <button class="btn btn-outline-secondary btn-sm fw-bold w-50 py-1" onclick="copyTranscriptToClipboard()"> 
+              <i class="bi bi-clipboard-check me-1"></i> Copy Details 
+            </button> 
+          </div> 
+        </div> 
+      </div> 
+      <div class="modal-footer bg-white py-2 justify-content-center"> 
+        <button type="button" class="btn btn-secondary btn-sm px-4 fw-bold" data-bs-dismiss="modal">Close</button> 
+      </div> 
+    </div> 
+  </div> 
+</div>
+
+<!-- FACEBOOK LINK QR CODE MODAL -->
+<div class="modal fade" id="shareQrCodeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
+    <div class="modal-content border-danger border-3 shadow-lg">
+      <div class="modal-header bg-dark text-white py-2 px-3 border-bottom border-danger">
+        <h6 class="modal-title fw-bold mb-0">
+          <i class="bi bi-qr-code text-danger me-2"></i>Scan to Share ArcDesign
+        </h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3 bg-light text-dark text-center">
+        <p class="small text-muted mb-2">Scan with camera or mobile QR reader to open the link directly:</p>
+        <div class="p-3 bg-white border rounded shadow-sm d-inline-block mb-3">
+          <img id="shareQrImage" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https%3A%2F%2Fwww.facebook.com%2Fshare%2F18SLfLXNUZ%2F" alt="ArcDesign Facebook Share QR Code" style="width: 200px; height: 200px; display: block; margin: 0 auto;">
+        </div>
+        <div class="input-group input-group-sm mb-2">
+          <input type="text" id="shareQrLinkText" class="form-control text-center fw-bold small" value="https://www.facebook.com/share/18SLfLXNUZ/" readonly>
+          <button class="btn btn-dark fw-bold" type="button" onclick="copyShareQrLink()">
+            <i class="bi bi-clipboard-fill text-danger me-1"></i>Copy
+          </button>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="https://www.facebook.com/share/18SLfLXNUZ/" target="_blank" rel="noopener noreferrer" class="btn btn-arc-red btn-sm fw-bold w-50 py-1">
+            <i class="bi bi-box-arrow-up-right me-1"></i>Open Link
+          </a>
+          <button type="button" class="btn btn-outline-dark btn-sm fw-bold w-50 py-1" onclick="shareDirectQrLink()">
+            <i class="bi bi-share-fill text-danger me-1"></i>Share Link
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer bg-white py-2 justify-content-center">
+        <button type="button" class="btn btn-secondary btn-sm px-4 fw-bold" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="bootstrap.bundle.min.js"></script>
+<script src="app_logic.js"></script>
+</body> 
+</html>
